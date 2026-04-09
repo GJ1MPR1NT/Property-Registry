@@ -9,6 +9,15 @@
 
 **Most relevant siblings:** **Vantage-iQ** (Rosetta, pipeline context) `/Users/geoffreyjackson/MyApps/Vantage-iQ/PROJECT_CONTEXT_Vantage_iQ.md`; **RITA-v1** (enrichment, registry writes) `/Users/geoffreyjackson/MyApps/RITA-v1/PROJECT_CONTEXT_RITA_v1.md`; **DALE-Demand** `/Users/geoffreyjackson/MyApps/DALE-Demand/PROJECT_CONTEXT_DALE_Demand.md`; **Chain-iQ** (project tables substrate) `/Users/geoffreyjackson/MyApps/Chain-iQ/Chain-iQ/PROJECT_CONTEXT_Chain_iQ.md`; **TURBO / PMO-iQ** (stakeholder ownership on schedules) `/Users/geoffreyjackson/MyApps/TURBO/PROJECT_CONTEXT_TURBO.md`; **dale-chat** (platform app) `/Users/geoffreyjackson/Dropbox/The Living Company/TLC iQ/Derived State/dale-chat/PROJECT_CONTEXT_dale_chat.md`.
 
+## Session: April 9, 2026 — Property Registry map fly-to on list selection
+
+### Problem
+- Choosing a property from the list did not **fly** the map to its pin because the right panel swapped to **detail-only** and **unmounted** `PropertyMapView`, so no map ran `flyTo`.
+
+### Fix (dale-chat)
+- **`app/property-registry/page.tsx`**: Split right column when a property is selected — **map on top** (~38vh max) + **scrollable `PropertyDetail` below**; `focusPropertyId={selectedProperty.id}` so the map animates to the pin. Optional **Back to full map** clears selection. **`mapProperties`** merges the selected property into the pin list when pin filters would exclude it (same pattern as map summary).
+- **`app/components/PropertyMapView.tsx`**: Fly effect depends on **`focusCoordsKey`** (focus id + lat/lng presence) so `flyTo` retries when the focused row appears in `mapped` after markers refresh.
+
 ## Session: April 7, 2026 — Property Registry list cap + “hub” search
 
 ### Problem
