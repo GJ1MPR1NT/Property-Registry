@@ -1,0 +1,26 @@
+# Dependencies
+node_modules/
+
+# Secrets — never commit
+.env
+.env.*
+!.env.example
+
+# OS / editor
+.DS_Store
+*.swp
+.idea/
+.vscode/
+
+# Logs and temp
+*.log
+npm-debug.log*
+
+# Dropbox conflict copies
+*conflicted copy*
+
+# Local scratch
+.cursor/
+
+# Optional local spreadsheets (not part of source)
+*.xlsx
