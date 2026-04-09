@@ -24,6 +24,22 @@
 ### Git repository (same day)
 - **Remote:** https://github.com/GJ1MPR1NT/Property-Registry — `README.md`, `.gitignore`, `.env.example`; scripts + this file are the tracked workspace. **Derived-State** `PROJECT_CONTEXT_Derived_State.md` (*Cross-module linkages*) and **dale-chat** `PROJECT_CONTEXT_dale_chat.md` link to this repo.
 
+## Session: April 8, 2026 — Property Registry list API 500
+
+### Problem
+- `/property-registry` showed **Failed to load Property Registry** / **API error: 500** (generic message when the response body was not `{ error: string }`).
+
+### Cause
+- List pagination (`POSTGREST_PAGE` loop) used **`select('*', { count: 'exact' })` on every chunk** (up to ~6 requests for `limit=5000`). PostgREST runs a full **COUNT** for each such request; repeated counts on a large `property_registry` table can **time out** or overload the API → **500**.
+
+### Fix (dale-chat)
+- **`app/api/property-registry/route.ts`**: pass **`includeTotalCount` only for the first `range()`** (`from === offset`); later chunks use `select('*')` without `count: 'exact'`.
+- Wrap handler in **try/catch** so unexpected errors return JSON `{ error: string }` instead of an HTML error page.
+- **`app/property-registry/page.tsx`**: parse **`error.message`** when `error` is an object.
+
+### Deploy
+- Change is under **Derived State / dale-chat**; deploy **tlciq-platform** (or your Vercel project for dale-chat) for production.
+
 ## Session: April 8, 2026 — Airtable: Projects → Properties sync
 
 ### Work completed
