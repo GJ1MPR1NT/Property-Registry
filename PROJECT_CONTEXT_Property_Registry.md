@@ -1,7 +1,25 @@
 # PROJECT_CONTEXT — Property Registry
 
+**Last updated:** April 10, 2026
+
 > **Git (canonical):** https://github.com/GJ1MPR1NT/Property-Registry — version history, scripts, and this file; clone for agents and CI.  
 > **Local workspace:** this folder may still live under Dropbox on your machine; **push here** when you want a durable snapshot.
+
+## Session: April 10, 2026 — Production ↔ Registry unit types + SKU matrix (phase 1)
+
+### Delivered
+- **Registry-iQ migration** — `scripts/migration-property-unit-type-skus.sql`: table `property_unit_type_skus`; columns on `property_unit_types`: `layout_asset_urls`, `production_unit_type_key`. **Apply in Supabase** before APIs/UI.
+- **dale-chat** — `GET/POST .../unit-types/[utId]/detail|skus`; unit-type create/update includes new columns; **`UnitTypeDetailModal`** on Overview (Unit mix) + Unit Types tab.
+- **Docs / scaffold** — `docs/PRODUCTION_REGISTRY_UNIT_PIPELINE.md`, `scripts/sync-production-to-registry-unit-skus.mjs` (extend for Production BOM + Rosetta).
+
+### Next
+- Map Production BOM tables; batch match via Rosetta/address; RITA queue for new stubs.
+
+## Session: April 10, 2026 — Context file refresh
+
+- **Repo:** `main` aligned with `origin/main` (Property-Registry workspace).
+- **Recent commits (this repo):** documentation-only updates that mirror **dale-chat** session notes already summarized below — Property Registry **API 500** fix (count-on-first-chunk + JSON error handling, April 8) and **map fly-to on list selection** (split layout + `focusCoordsKey`, April 9).
+- **Update:** phase 1 of **Production ↔ unit-type SKU** pipeline now has migration + dale-chat UI/API in Derived-State; artifacts listed in session above.
 
 ## Related context (ecosystem)
 
