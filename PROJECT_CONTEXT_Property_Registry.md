@@ -1,9 +1,24 @@
 # PROJECT_CONTEXT — Property Registry
 
-**Last updated:** April 10, 2026
+**Last updated:** April 9, 2026
 
 > **Git (canonical):** https://github.com/GJ1MPR1NT/Property-Registry — version history, scripts, and this file; clone for agents and CI.  
 > **Local workspace:** this folder may still live under Dropbox on your machine; **push here** when you want a durable snapshot.
+
+## Session: April 9, 2026 — Unit #s + Floors tabs (dale-chat)
+
+### Delivered
+- **Registry-iQ:** `property_units` migration (`scripts/migration-property-units.sql` in Property_Registry workspace / prior session) — required before APIs.
+- **dale-chat UI:** **Unit #s** tab (`PropertyUnitsTab`) — table of unit numbers → unit type, building/floor, SKU line count & piece estimate from unit-type BOM; admin add/remove.
+- **dale-chat UI:** **Floors** tab (`PropertyFloorsTab`) — `GET /floors-summary`: property total, per-building rollup, per-floor unit list + counts by unit type + SKU piece totals; **unassigned** (units with no `floor_id`).
+- **Wiring:** `property-registry/[id]/page.tsx` — tabs after FF&E SKUs; `unitsFloorsRefreshKey` bumps when Buildings, Unit Types, FF&E SKUs refresh, or when units change so Floors stays current.
+- **API tweak:** `floors-summary` tolerates missing `property_unit_type_skus` (empty SKU rollups).
+
+### Ops
+- Apply **`migration-property-units.sql`** on Registry-iQ if not already run.
+
+### Follow-up (same period)
+- **DALE-Supply split:** Tab renamed **Shipping** (was *Inventory & Shipping*). **Orders & inventory** (POs, line items, SKU lifecycle, match terms) lives on **FF&E SKUs**; **Shipping** shows containers + status only. Shared type: `property-dale-supply-types.ts`; components `PropertyDaleSupplyInventory`, `PropertyDaleSupplyShipping`.
 
 ## Session: April 10, 2026 — Production ↔ Registry unit types + SKU matrix (phase 1)
 

@@ -20,8 +20,11 @@ Run in Supabase (Registry-iQ):
 | Method | Path | Purpose |
 |--------|------|---------|
 | GET | `/api/property-registry/[id]/unit-types/[utId]/detail` | Unit type + SKUs + rollups |
+| GET | `/api/property-registry/[id]/skus` | Property-wide FF&E matrix: `lines`, `by_sku`, `summary` (many SKUs ↔ many unit types) |
 | POST | `/api/property-registry/[id]/unit-types/[utId]/skus` | Admin: replace SKU lines (`{ skus: [...] }`) |
 | PATCH | `/api/property-registry/[id]/unit-types` | Includes `layout_asset_urls`, `production_unit_type_key` |
+
+**UI:** Property detail has an **FF&E SKUs** tab (alongside **Unit Types**) with “By assignment” and “By SKU” views.
 
 ## Sync script
 
