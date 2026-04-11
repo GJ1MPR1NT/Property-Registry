@@ -2,6 +2,12 @@
 
 **Last updated:** April 10, 2026
 
+## Session: April 11, 2026 — Sync retries + SKU count verification
+
+- **`sync-production-to-registry.mjs`** — `withRetry` on PostgREST pages + whole-deal sync; flags `--retries` (default 4), `--retry-base-ms` (default 400); transient errors: `fetch failed`, 502/503, timeouts, etc.
+- **`scripts/count-sku-sync-expectation.mjs`** — prints Production `requirements` (72,022 lines, all join `items.sku`) vs Registry `property_unit_type_skus` (~14.9k, deduped + project_registry scope).
+- **Re-ran failed deals** `22-037`, `22-038` (transient fetch during mass run); both succeeded.
+
 ## Session: April 10, 2026 — Mass enrichment (in progress)
 
 - **`sync-production-to-registry.mjs`** — added `--offset` / `--limit`, `--delay-ms`, chunked Production `deals` fetch by `deal_number` (200 chunks), non-numeric floor codes (E/S/B/T) → synthetic `floor_number` 1000+idx, floor lookup by label.

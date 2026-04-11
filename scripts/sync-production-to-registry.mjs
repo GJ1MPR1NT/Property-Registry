@@ -17,6 +17,7 @@
  *   node scripts/sync-production-to-registry.mjs --all --dry-run
  *   node scripts/sync-production-to-registry.mjs --all --offset=0 --limit=50   # batch (resume)
  *   node scripts/sync-production-to-registry.mjs --all --delay-ms=100        # throttle API
+ *   node scripts/sync-production-to-registry.mjs --all --retries=4 --retry-base-ms=400
  *
  * Env (from dale-chat/.env.local or export):
  *   REGISTRY_IQ_SUPABASE_URL, REGISTRY_IQ_SUPABASE_SERVICE_ROLE_KEY
@@ -43,6 +44,8 @@ const offsetArg = parseInt(process.argv.find(a => a.startsWith('--offset='))?.sp
 const limitArg = process.argv.find(a => a.startsWith('--limit='))?.split('=')[1];
 const limitNum = limitArg !== undefined ? parseInt(limitArg, 10) : null;
 const delayMs = parseInt(process.argv.find(a => a.startsWith('--delay-ms='))?.split('=')[1] ?? '0', 10);
+const maxRetries = parseInt(process.argv.find(a => a.startsWith('--retries='))?.split('=')[1] ?? '4', 10);
+const retryBaseMs = parseInt(process.argv.find(a => a.startsWith('--retry-base-ms='))?.split('=')[1] ?? '400', 10);
 
 const registryUrl = process.env.REGISTRY_IQ_SUPABASE_URL;
 const registryKey = process.env.REGISTRY_IQ_SUPABASE_SERVICE_ROLE_KEY;
@@ -57,15 +60,40 @@ if (!registryUrl || !registryKey || !prodUrl || !prodKey) {
 const reg = createClient(registryUrl, registryKey, { auth: { persistSession: false } });
 const prod = createClient(prodUrl, prodKey, { auth: { persistSession: false } });
 
+function isTransientNetworkError(err) {
+  const m = String(err?.message ?? err ?? '');
+  return /fetch failed|ECONNRESET|ETIMEDOUT|ENOTFOUND|socket|network|502|503|504|timeout|UND_ERR_SOCKET|Failed to fetch/i.test(m);
+}
+
+/** Retry async ops on transient network / edge failures (Supabase PostgREST). */
+async function withRetry(fn, label) {
+  let last;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (e) {
+      last = e;
+      if (attempt === maxRetries || !isTransientNetworkError(e)) throw e;
+      const wait = retryBaseMs * 2 ** attempt;
+      console.warn(`  [retry ${attempt + 1}/${maxRetries}] ${label} — waiting ${wait}ms: ${e.message}`);
+      await new Promise((r) => setTimeout(r, wait));
+    }
+  }
+  throw last;
+}
+
 async function fetchAll(client, table, filter) {
   const all = [];
   let from = 0;
   const PAGE = 1000;
   while (true) {
-    let q = client.from(table).select('*').range(from, from + PAGE - 1);
-    if (filter) q = filter(q);
-    const { data, error } = await q;
-    if (error) throw new Error(`${table}: ${error.message}`);
+    const { data, error } = await withRetry(async () => {
+      let q = client.from(table).select('*').range(from, from + PAGE - 1);
+      if (filter) q = filter(q);
+      const res = await q;
+      if (res.error) throw new Error(`${table}: ${res.error.message}`);
+      return res;
+    }, `${table} range ${from}`);
     if (!data?.length) break;
     all.push(...data);
     if (data.length < PAGE) break;
@@ -406,7 +434,10 @@ async function main() {
   for (let i = 0; i < pairs.length; i++) {
     const { deal, registryPropertyId } = pairs[i];
     try {
-      await syncDeal(deal, registryPropertyId);
+      await withRetry(
+        () => syncDeal(deal, registryPropertyId),
+        `sync ${deal.deal_number}`
+      );
       ok++;
     } catch (e) {
       console.error(`FAILED ${deal.deal_number}:`, e.message);

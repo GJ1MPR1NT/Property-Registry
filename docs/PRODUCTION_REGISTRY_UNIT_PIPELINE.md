@@ -41,9 +41,21 @@ Run in Supabase (Registry-iQ):
 | `--all` | Every `project_registry.project_id` ↔ Production `deal_number` pair (~1,018) |
 | `--offset=N --limit=50` | Batch (resume after interruption — use **Next batch** line from prior run) |
 | `--delay-ms=35` | Throttle between deals (optional) |
+| `--retries=4` | Retry transient network errors (`fetch failed`, 502/503, timeouts) per page + per deal |
+| `--retry-base-ms=400` | Base delay for exponential backoff (default 400) |
 | `--dry-run` | No writes |
 
 **Mass run (example):** process 50 deals at a time, then continue from printed offset until `1008` (covers deals 8–1017 of the sorted list; deals 0–7 run separately or overlap is idempotent).
+
+**SKUs — how many rows should exist?**
+
+| Source | Count (verified via PostgREST) |
+|--------|----------------------------------|
+| Production `requirements` (BOM lines) | **72,022** |
+| Same, inner-join `items` where `sku` not null | **72,022** (every line maps to an item with a SKU) |
+| Registry `property_unit_type_skus` after sync (`source = tlciq_production`) | **~14–15k** (dedupe + only deals in `project_registry`) |
+
+Rows are **not** 1:1 with Production lines: `property_unit_type_skus` has `UNIQUE (unit_type_id, sku, room_label)`, so repeated BOM lines collapse. Run `node scripts/count-sku-sync-expectation.mjs` anytime to re-check.
 
 **SKUs:** Only deals with **non-zero `requirements`** rows linked to `unit_types` get `property_unit_type_skus` — roughly **13%** of Production deals today; the rest still get unit mix + units + floors.
 
