@@ -40,3 +40,64 @@ Run in Supabase (Registry-iQ):
 
 - Join **replacement_year** / **cohort_year** on `property_unit_type_skus` when Production or pacing reports supply them.
 - Historic pacing reports: validate totals; optional separate ingest table later.
+
+## Sage pacing reports → crosswalk (DALE-Demand)
+
+Sage **Order Detail** sheets from the periodic pacing `.xlsx` files are loaded into **DALE-Demand** Supabase table **`sage_orders`** (same project as `pipeline_current`, `install_schedules`, etc.). This is **not** Registry-iQ data, but it is a strong join layer for **deal number**, **Sage order number**, and **names**.
+
+| Source | Location |
+|--------|----------|
+| ETL | Vantage-iQ repo: `scripts/load-sage-pacing.js` (sheets like `2026 Order Detail`, `2025 Order Detail`) |
+| DDL | `supabase/migrations/add_sage_orders.sql` |
+| Docs | `PROJECT_CONTEXT_Vantage_iQ.md` — Order Archive + pacing dedupe by `order_number` |
+
+**Useful columns for Production ↔ Registry matching**
+
+| Column | Role |
+|--------|------|
+| `order_number` | Sage order number (from `ORDNUMBER`) |
+| `reference` | Sage `REFERENCE` — often encodes deal-style tokens parsed by the ETL |
+| `ship_name`, `customer_name` | `SHPNAME`, `CUSTOMER NAME` — fuzzy match fallback to D365 |
+| `d365_opportunity_code` | When the ETL matched Sage → Dynamics (`pipeline_current`) |
+| `delivery_year`, `snapshot_date` | Pacing / archive cut |
+
+**How to use it in this pipeline**
+
+1. Match **`sage_orders.reference`** / **`order_number`** parsing → **`pipeline_current.deal_number`** (or use pre-filled **`d365_opportunity_code`**).
+2. Same **`deal_number`** appears on **TLCiQ-Production** `deals.deal_number` and install views — use it to drive **`production_unit_type_key`** and unit/SKU sync once **`property_registry.id`** is resolved (Rosetta, address, or manual).
+3. **`ship_name`** / **`customer_name`** help disambiguate duplicate deal codes or find sibling phases (e.g. multiple “Rambler” sites) before enriching **`property_unit_types`** / **`property_units`**.
+
+Keep **`sage_orders`** as **read-only** input for crosswalk; authoritative FF&E lines still come from Production **`requirements`** / **`items`** (or Registry after sync).
+
+### Worked example: Rambler (UF) — Feb 2026 snapshot
+
+Run against **DALE-Demand** (same project as `sage_orders` / `pipeline_current`):
+
+```text
+sage_orders:  .or('ship_name.ilike.%Rambler%,customer_name.ilike.%Rambler%,reference.ilike.%Rambler%')
+pipeline_current:  .or('opportunity_name.ilike.%Rambler%,account_name.ilike.%Rambler%')
+```
+
+**Findings**
+
+- **`sage_orders`** returns UF Sage lines (e.g. `23-016-I`, `25-010-I`, `26-048-I`) with **`ship_name`** / **`customer_name`** disambiguating **Austin, Athens, Atlanta, Columbus, Tempe**, etc. Rows may appear twice with different **`snapshot_date`** (Order Archive year-end vs pacing load); dedupe by **`order_number`** preferring the latest snapshot (same rule as Vantage `/api/pacing`).
+- **`pipeline_current`** lists **commercial deal numbers** on many rows (e.g. **`23-016-I`** → opportunity *Rambler - 2513 Seton, ATX*). Those map to **TLCiQ-Production** `deals.deal_number` for install/unit/SKU pulls.
+- **Registry-iQ** already has multiple **RAMBLER \*** property rows (Austin Seton, Athens, Atlanta, Columbus, Tempe, etc.); **`project_registry`** can carry **`23-016`** ↔ Austin property. Gaps are mostly **FF&E matrix** (`property_unit_type_skus`, `property_units`), not the property stub.
+
+**Higher-value “more deals to enrich” (pipeline Rambler, `deal_number` is null)**
+
+These opportunities exist in **D365** but have **no `deal_number` yet** — harder to join to Sage order refs and Production install keys until numbering or Rosetta catches up:
+
+| Opportunity (abridged) | Account | Status |
+|------------------------|---------|--------|
+| Rambler West Lafayette | LV Collective | Lost |
+| Rambler Ann Arbor | LV Collective | Open |
+| Rambler Riverfront Bldg A / B | LV Collective | Open |
+| Rambler College Park | LV Collective | Open |
+| ’28 Rambler Blacksburg / Clemson | Blake / GC accounts | Open |
+
+Prioritize **Open** LV Collective rows for **property stub + external_ids**, then backfill **`deal_number`** when sales assigns codes. **Blake Solutions** Ramblers use a different division path — still enrich Registry if they are customer sites.
+
+**Already numbered (good for Production ↔ Registry sync)**
+
+Examples: **`23-016-I`**, **`23-016-I-AC1`**, **`23-016-I-AC2`** (Austin); **`24-033-I`**, **`24-205-I`** (Athens); **`25-004-I`**, **`25-010-I`**, **`25-1920-D`**, **`25-1979-D`** (Columbus / Atlanta); **`26-048`** (Tempe — note D365 `deal_number` **`26-048`** vs Sage order **`26-048-I`**). Use **`deal_number`** + property match to drive **`production_unit_type_key`** and unit/SKU sync.

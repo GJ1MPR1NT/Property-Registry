@@ -2,6 +2,14 @@
 
 **Last updated:** April 9, 2026
 
+## Session: April 9, 2026 — Sage pacing crosswalk doc + Rambler enrichment scan
+
+### Delivered
+- **`docs/PRODUCTION_REGISTRY_UNIT_PIPELINE.md`** — new section **Sage pacing reports → crosswalk (DALE-Demand)** (`sage_orders`, Vantage ETL pointers, join strategy). **Worked example: Rambler** — query filters, UF vs Blake Ramblers, pipeline rows with **null `deal_number`** (Ann Arbor, Riverfront A/B, College Park, West Lafayette, ’28 Blacksburg/Clemson) vs numbered deals (**`23-016-I`**, Athens, Columbus, Atlanta, **`26-048`** Tempe). Confirms Registry-iQ already has multiple RAMBLER property rows; gap is FF&E/unit data not stubs.
+
+### How validated
+- DALE-Demand: `sage_orders` + `pipeline_current` (ilike `%Rambler%`). Registry-iQ: `property_registry` ilike Rambler / Seton.
+
 > **Git (canonical):** https://github.com/GJ1MPR1NT/Property-Registry — version history, scripts, and this file; clone for agents and CI.  
 > **Local workspace:** this folder may still live under Dropbox on your machine; **push here** when you want a durable snapshot.
 
