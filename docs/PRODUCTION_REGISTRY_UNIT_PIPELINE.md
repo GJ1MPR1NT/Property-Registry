@@ -30,6 +30,23 @@ Run in Supabase (Registry-iQ):
 
 `scripts/sync-production-to-registry-unit-skus.mjs` — scaffold; extend with Production table mapping and Rosetta/address matching.
 
+### Full production → Registry sync (unit types, units, floors, SKUs) — **recommended**
+
+`scripts/sync-production-to-registry.mjs` pulls **TLCiQ-Production** `deals` → Registry-iQ `property_unit_types`, `property_units`, `property_buildings`, `property_floors`, and **`property_unit_type_skus`** when `requirements` + `items` exist for that deal.
+
+| Flag | Purpose |
+|------|---------|
+| `--deal=23-016` | Single deal (uses `project_registry` for `property_id` if omitted) |
+| `--deal=… --property=<uuid>` | Explicit Registry property |
+| `--all` | Every `project_registry.project_id` ↔ Production `deal_number` pair (~1,018) |
+| `--offset=N --limit=50` | Batch (resume after interruption — use **Next batch** line from prior run) |
+| `--delay-ms=35` | Throttle between deals (optional) |
+| `--dry-run` | No writes |
+
+**Mass run (example):** process 50 deals at a time, then continue from printed offset until `1008` (covers deals 8–1017 of the sorted list; deals 0–7 run separately or overlap is idempotent).
+
+**SKUs:** Only deals with **non-zero `requirements`** rows linked to `unit_types` get `property_unit_type_skus` — roughly **13%** of Production deals today; the rest still get unit mix + units + floors.
+
 ## Rosetta & DALE
 
 - Register Production **source_system** and identifiers (site id, deal, normalized address hash).

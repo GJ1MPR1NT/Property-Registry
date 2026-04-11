@@ -1,6 +1,31 @@
 # PROJECT_CONTEXT — Property Registry
 
-**Last updated:** April 9, 2026
+**Last updated:** April 10, 2026
+
+## Session: April 10, 2026 — Mass enrichment (in progress)
+
+- **`sync-production-to-registry.mjs`** — added `--offset` / `--limit`, `--delay-ms`, chunked Production `deals` fetch by `deal_number` (200 chunks), non-numeric floor codes (E/S/B/T) → synthetic `floor_number` 1000+idx, floor lookup by label.
+- **Mass run:** background loop from `--offset=8 --limit=50` through all pairs (1018 total; first 8 offsets covered by earlier smoke tests). Log: `scripts/enrich-mass-run.log` (gitignored `*.log`). If interrupted, resume from last **Next batch:** line in log.
+- **`docs/PRODUCTION_REGISTRY_UNIT_PIPELINE.md`** — documented full sync script + batching.
+
+## Session: April 10, 2026 — Production → Registry sync script (working)
+
+### Delivered
+- **`scripts/sync-production-to-registry.mjs`** — fully working sync: Production `deals` → Registry-iQ `property_unit_types`, `property_units`, `property_buildings`, `property_floors`, `property_unit_type_skus` (when `requirements` exist). Flags: `--deal=XX-NNN --property=UUID`, `--all`, `--dry-run`.
+- **Test case: 23-016 Rambler Austin** — synced to Registry-iQ (`9665c5d8`): 70 unit types, 215 units, 1 building, 8 floors, 817 beds. Cross-checked Production vs Registry counts. 6 pre-existing marketing-named unit types preserved (no `production_unit_type_key`).
+- **Mass enrichment audit:** `--all` resolves **1,018 deal→property pairs** via `project_registry.project_id` → `deals.deal_number`. Of those, ~5 deals currently have `requirements` rows (BOM/SKUs); the rest have unit types + units but no BOM.
+- **`docs/PRODUCTION_REGISTRY_UNIT_PIPELINE.md`** updated with Sage crosswalk section + Rambler worked example.
+
+### Validation
+- Registry counts match Production: 215/215 units, 70/70 synced unit types
+- Units have correct `floor_id` and `building_id` assignments
+- `property_registry` totals updated: 215 units, 817 beds, 8 floors
+
+### To run mass enrichment
+```bash
+node scripts/sync-production-to-registry.mjs --all --dry-run   # preview
+node scripts/sync-production-to-registry.mjs --all              # live
+```
 
 ## Session: April 9, 2026 — Sage pacing crosswalk doc + Rambler enrichment scan
 
