@@ -1,6 +1,39 @@
 # PROJECT_CONTEXT — Property Registry
 
-**Last updated:** May 7, 2026
+**Last updated:** May 20, 2026
+
+## Session: May 20, 2026 — `iqid` identity scheme + intake staging + dedupe review
+
+**Decisions (chat thread):**
+- **Platform-wide identifier** on every registry entity: `iqid_<entity>_<10-char base32>` where prefixes are `prop | proj | vend | stake | cont | fac | team | scope | pos`. Charset excludes `0/o`, `1/l/i` so IDs are unambiguous on screen and in voice. Format chosen over `TLC-Pxxxxx` because `TLC-` is already overloaded in other systems and entity-typed prefixes (Stripe/Clerk-style) are self-describing.
+- **HITL gating** — iqids are **not auto-assigned on insert**. Externally-sourced entities (property, project, vendor, stakeholder, contact, facility) flow through `registry_intake_staging`. Fuzzy match against existing rows + `registry_alias` → one of:
+  - `auto_matched` (≥0.98) — one-click confirm
+  - `ai_proposed` — AI pre-pass drafted merge proposal
+  - `needs_review` (0.75–0.98) — human picks from top candidates
+  - `approved_new` / `merged` / `rejected`
+- **Smoke-tested:** `HUB Bloomington II Lincoln` vs `HUB Cloomington Lincoln II` → trigram similarity **0.800** → correctly lands in `needs_review`.
+- **Existing dedupe** — same model: a one-time scan populates `registry_dedupe_review` with pairwise candidates. ≥0.98 auto-merge with audit log; **AI pre-pass** drafts proposals for the 0.75–0.98 band for bulk approval. Internal lookup registries (team, scope, position) get `iqid` only — no staging+HITL.
+- **Same pattern across all entity types** — polymorphic single staging / alias / dedupe tables keyed by `entity_type` enum (`property | project | vendor | stakeholder | contact | facility | team | scope | position`).
+
+**Migration applied (Registry-iQ Supabase `xhafhdaugmgdxckhdfov`):** `scripts/migration-iqid-and-intake-staging.sql`
+
+**What landed:**
+- Enums: `iqid_entity_type`, `iqid_review_status`
+- Functions: `iqid_normalize_name`, `iqid_unaccent_immutable` (immutable plpgsql wrapper around `extensions.unaccent` — required for use in generated columns), `iqid_prefix`, `iqid_random_suffix`, `iqid_mint`
+- New `iqid` column + partial unique index on all 9 registries (`property_registry`, `project_registry`, `vendor_registry`, `stakeholder_registry`, `contact_registry`, `facility_registry`, `team_registry`, `scope_registry`, `position_registry`)
+- New `normalized_name` generated column + GIN trigram index on the 6 externally-sourced registries. **Note:** for `contact_registry`, the expression is `coalesce(first_name, '') || ' ' || coalesce(last_name, '')` because `display_name` is itself generated and `concat_ws` is STABLE (not IMMUTABLE).
+- Tables: `registry_intake_staging`, `registry_alias`, `registry_dedupe_review` — all polymorphic over `entity_type`
+- Unordered-pair uniqueness on `registry_dedupe_review` so `(A,B)` and `(B,A)` are the same review
+
+**What's next (sequenced):**
+1. **Dedupe scan** over existing 2,125 properties + 2,799 projects + 990 stakeholders + 943 contacts + 151 vendors + 26 facilities → populate `registry_dedupe_review` with pairwise candidates ≥0.75. Already-identical normalized names (e.g. `CAMPUS EDGE - RALEIGH` vs `CAMPUS EDGE-RALEIGH`, both normalize to `campus edge raleigh`) will surface as 1.0 matches.
+2. **AI pre-pass** drafts merge proposals for the 0.75–0.98 band → stored in `registry_dedupe_review.ai_proposal`.
+3. **HITL review UI** in dale-chat at `/property-registry/review` (and sibling entity types). Reviewer actions: approve-new (mint iqid), merge (alias the loser's name into winner's `registry_alias`), reject.
+4. **Reroute ingestion paths** to write into `registry_intake_staging` instead of direct registry INSERT. First: `scripts/sync-install-schedules-to-registry.mjs`.
+5. **Backfill iqids** on survivors only — after dedupe is settled.
+6. **Guardrail follow-up migration** — add CHECK constraint or trigger blocking inserts without iqid once all ingestion paths are switched over.
+
+---
 
 ## Session: May 7, 2026 — Canonical taxonomy v1.1 — `property_buildings.form_factor` materialized
 
