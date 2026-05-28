@@ -2,6 +2,30 @@
 
 **Last updated:** May 28, 2026
 
+## Session: May 28, 2026 — Delete-row danger zone (L / R / both)
+
+User: "what if there is something in the db for property that isnt a property at all. can you add a delete L, delete R, and Delete Both button? for any delete action ask a confirm click. not rows. entire columns/records"
+
+Reviewers need a way to remove registry rows that aren't real entities (junk import, mis-categorized building, placeholder) without going through merge/distinct/reject — those decisions all assume both sides are real.
+
+**SQL (Registry-iQ):**
+- `scripts/migration-iqid-soft-delete-row.sql` — extends `property_status` / `project_status` CHECK constraints to accept new `'deleted'` value alongside the existing operational states, then adds `iqid_soft_delete_row(entity_type, row_id, reviewer, reason) → jsonb`.
+- For property/project: sets `<entity>_status = 'deleted'`. For vendor/stakeholder/contact/facility: sets `is_active = false`. Always appends `[DELETED <ts> reason: ... by <reviewer>] (row marked deleted via registry-review; FKs left intact)` to `notes`.
+- **FK policy: left intact.** Child rows continue to reference the soft-deleted row for audit. The row simply disappears from active queries. Hard DELETE was rejected as a design — RESTRICT would block the reviewer; CASCADE would silently nuke downstream data.
+- **Cascade behavior:** any OTHER open dedupe_review pair referencing this row gets auto-rejected with `resolution='peer_deleted'` and an `[AUTO-REJECTED]` marker on reviewer_notes. Keeps the queue clean.
+
+**dale-chat (Derived-State):**
+- `POST /api/registry-review/[id]/delete-row` (admin-gated). Body: `{ which: 'left' | 'right' | 'both', reason?: string }`. Calls `iqid_soft_delete_row` for each target row sequentially, then overrides the current pair's resolution with a more specific tag (`'deleted_left' | 'deleted_right' | 'deleted_both'`) so the audit trail says exactly what the reviewer did versus what was a peer-cascade.
+- New `DangerZone` component in `DetailPanel`'s action bar (below the 4 decision buttons): three rose-toned "🗑 Delete L / Delete R / Delete both" chips.
+- Two-click confirm pattern (per request): first click arms the deletion — the panel morphs to a rose-bordered confirm card explaining what will happen (status flip + notes marker + FK-intact policy + peer-pair auto-reject) with an optional reason input. Second click executes; Cancel reverts.
+
+**Status semantics post-change (property/project):**
+- `active`/`prospect`/`under_construction`/etc. — operational
+- `inactive` — manually inactive OR merged via `iqid_apply_merge`
+- `deleted` — declared "not a real entity" via `iqid_soft_delete_row` (NEW)
+
+---
+
 ## Session: May 28, 2026 — Coalesce loser values into NULL survivor columns on merge
 
 User: "when i say merge L into R which fields take precedence if both are populated"
