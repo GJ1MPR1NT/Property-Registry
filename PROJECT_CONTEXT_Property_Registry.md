@@ -2,6 +2,22 @@
 
 **Last updated:** May 28, 2026
 
+## Session: May 28, 2026 — Inline edit of dedupe-relevant fields (replaces rename)
+
+User: "rather than just rename can we open all fields to edit?"
+
+Decision after scoping discussion: **Option A** — edit the ~10-20 fields per entity that actually drive a merge decision, not the full 20-50 column schema. The dedupe-relevant fields are: name, address, city/state/postal, brand/type, status/active, external_ids, plus user-requested additions `total_units`, `total_beds`, `opening_year` (the "year opened" column on property_registry), and `property_url` / `leasing_url`. For everything else, an "Open full record →" link on each side header opens the canonical detail page in a new tab.
+
+Implementation:
+- `dale-chat/lib/registry-edit.ts` — per-entity FieldSpec allowlist + `coerceFieldValue` (text/longtext/integer/boolean/jsonb), `fullRecordUrl(entity, id)` (falls back to list page for vendor/facility which don't have detail pages yet).
+- `dale-chat/app/api/registry-review/[id]/edit-row/route.ts` — admin-gated. Filters body against allowlist, drops unchanged fields, runs one UPDATE, appends `[EDIT ts] col=old→new; ...` to notes. Refreshes `match_reason.name_left/right` if a name-bearing column changed. Does NOT recompute `match_score` (intentional — score is historical, edits inform the next decision).
+- `dale-chat/app/registry-review/page.tsx` — replaced `NameHeader` with `SideHeader` (carrying ↗ link + ✎ edit chip + Save/Cancel). `EditableRow` + `EditableCell` render type-aware inputs (text/number/select/textarea). Allowlist columns that are NULL on both rows still surface in edit mode so reviewers can fill them. The decision/apply bar is locked while editing — Save or Cancel first.
+- Deleted `dale-chat/app/api/registry-review/[id]/rename-row/route.ts` — the name column is now editable through the generic endpoint like every other field.
+
+**Build-break prevention:** ran `npm install` + `next build` locally (first time `node_modules` has ever existed in `Derived-State/` — Vercel always built from scratch). Caught one TS error (Supabase `GenericStringError` union from `.select(<comma-string>)`) before push. Vercel build of `01a1881` succeeded first try, READY on production. Recommend running `next build` locally before every push from here on to avoid the silent ERROR'd-production state we hit earlier today.
+
+---
+
 ## Session: May 28, 2026 — Production deploy unblock
 
 User reported "still not seeing anything" after the AI pre-pass + rename-button work was pushed. Investigation: **both prior production deploys on `tlciq-platform` (`af34306`, `7c35782`) were in ERROR state** — production was stuck on the last successful build, so none of the recent work was actually live.
