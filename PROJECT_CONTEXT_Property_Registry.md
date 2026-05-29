@@ -1,6 +1,41 @@
 # PROJECT_CONTEXT — Property Registry
 
-**Last updated:** May 28, 2026
+**Last updated:** May 29, 2026
+
+## Session: May 29, 2026 — Combine identifiers on merge (don't discard loser's refs)
+
+User: "can we arrange to combine project number or external references rather than writing over on a merge"
+
+**Problem:** Prior merge logic kept survivor values on conflict — loser's `project_id`, `order_number`, or conflicting `external_ids` keys were silently dropped.
+
+**SQL (Registry-iQ, applied live):**
+- `scripts/migration-iqid-combine-identifiers-on-merge.sql`
+- Helpers: `iqid_merge_external_ids`, `iqid_combine_scalar_identifiers`, `iqid_ext_append_unique`
+- **external_ids:** survivor stays primary at each key; conflicting values combined in `external_ids.merged_refs[key][]` (e.g. `deal_number: ["26-1002-D","26-1002-E"]`)
+- **Project scalars** (both non-null, different): survivor column unchanged; loser appended to:
+  - `alternate_project_ids`, `alternate_order_numbers`, `alternate_d365_opportunity_codes`, `alternate_legacy_access_project_ids`
+- **Property:** `property_code` → `alternate_property_codes`
+- Coalesce-NULL + additive-only keys unchanged
+
+**dale-chat:** Apply preview shows "Identifiers combined" + `merged_refs` detail (Derived-State).
+
+---
+
+## Session: May 29, 2026 — Registry review JSON crash + project detail edit
+
+User: "i need to be able to edit project details + review on properties just crashed: Unexpected token '<', "<!DOCTYPE "... is not valid JSON"
+
+**Root cause (review crash):** Client `fetch().json()` on `/api/registry-review/*` when the response is HTML (Clerk auth 404 page, stale deploy 404, or session expired) throws the opaque `Unexpected token '<'` error.
+
+**dale-chat fixes (Derived-State, not yet pushed unless user commits):**
+- `lib/read-json-response.ts` — checks `Content-Type` before parsing; surfaces actionable messages ("sign in again", "API route not found").
+- `app/registry-review/page.tsx` — all review fetches use `readJsonResponse`.
+- `app/api/registry-review/route.ts` — `status=resolved` now maps to `merged|approved_new|rejected`; `needs_review` includes `pending|auto_matched|ai_proposed`.
+- `app/api/registry-review/stats/route.ts` — paginates past Supabase's 1000-row cap (~2934 pairs in queue).
+- `app/api/project-registry/[id]/route.ts` — new admin-gated `PATCH` for core project fields.
+- `app/project-registry/[id]/page.tsx` — **Edit project** mode (name, brand, division, type/status, stats grid, notes).
+
+---
 
 ## Session: May 28, 2026 — Delete-row danger zone (L / R / both)
 
