@@ -2,6 +2,46 @@
 
 **Last updated:** May 29, 2026
 
+## Session: May 29, 2026 — Contact review: editable linked stakeholder
+
+User: "for contact matching can you include the linked stakeholder as an editable field"
+
+**dale-chat registry-review (needs deploy):**
+- `lib/contact-stakeholder-link.ts` — load/set primary `contact_stakeholder_associations` link
+- `lib/registry-edit.ts` — contact field `linked_stakeholder_id` (`stakeholder_ref` type)
+- `GET /api/registry-review/[id]` — hydrates `linked_stakeholder_id` + name on contact rows
+- `POST /api/registry-review/[id]/edit-row` — persists stakeholder association changes + audit note
+- `app/registry-review/page.tsx` — compare row + search picker when editing L/R side
+
+---
+
+User: "the key now is to match projects to properties using the ship to addresses from sage"
+
+**Pipeline:** `scripts/sync-sage-shipto-project-property.mjs` + `scripts/lib/sage-shipto-match.mjs`
+
+1. Load DALE-Demand `sage_orders` with ship_to populated (2,638 orders deduped by `order_number`)
+2. Join unlinked `project_registry` via deal keys / `external_ids` / name vs `ship_name`
+3. Match `property_registry` via `property_key`, address key, warehouse tokens, deal in external_ids, fuzzy ship_name+city/state
+4. Upsert `project_location_candidates`; optional `--promote --min-confidence=95` writes `project_registry.property_id`
+
+**First apply (live Registry-iQ):**
+- 727 candidates written
+- 55 projects auto-linked (`sage_property_key_exact`, confidence 100)
+- **1,407 / 2,799** projects now have `property_id` (was 1,352)
+- Queue: 74 proposed, 438 needs_review (ambiguous), 160 needs_external_research, 55 accepted
+
+**Fix during apply:** PostgREST upsert failed on partial unique index → script uses select-then-update/insert.
+
+**Docs:** `docs/SAGE_SHIPTO_PROJECT_PROPERTY_LINK.md`
+
+**Follow-ups:** Review ambiguous queue; repopulate ship_to on latest Sage snapshot in DALE-Demand; consider promoting `ship_to_address_exact` (98) after spot-check.
+
+**Snapshot date note (2026-05-28):** `2026-12-31` in `sage_orders` is the FY2026 **year-end pacing** batch (878 rows, no ship_to) — not the latest API sync. Operational sync date = **2026-05-31**; `property_key` enrichment = **2026-05-27**. Script dedupe prefers `property_key` over raw snapshot_date.
+
+**Ship-to matching doctrine (2026-05-28):** `scripts/lib/sage-shipto-match.mjs` is the shared module — always call `enrichSageOrder()` before matching; project→Sage joins include ship-to address; Sage→property tiers lead with address/property_key before fuzzy name. Sage header sync updated in `Sage-iQ/scripts/sage_oe_map.py` to write `property_key` on every row.
+
+---
+
 ## Session: May 29, 2026 — Block project merge when project_id differs
 
 User: "in the registry review if the project ids are different they should not be merge candidates"
