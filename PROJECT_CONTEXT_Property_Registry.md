@@ -40,6 +40,8 @@ User: "the key now is to match projects to properties using the ship to addresse
 
 **Ship-to matching doctrine (2026-05-28):** `scripts/lib/sage-shipto-match.mjs` is the shared module — always call `enrichSageOrder()` before matching; project→Sage joins include ship-to address; Sage→property tiers lead with address/property_key before fuzzy name. Sage header sync updated in `Sage-iQ/scripts/sage_oe_map.py` to write `property_key` on every row.
 
+**Apply run (2026-05-31):** Backfilled `property_key` on ~5,600 ship_to rows (`backfill-sage-shipto-property-key.mjs`). Re-ran `--apply --promote --min-confidence=95` → **477 promoted** (1,884 / 2,799 projects linked). Sage header sync to snapshot `2026-05-28` running for current-window refresh. Historical Excel snapshots (pre-2025-03-22) still lack ship_to — only ~5,703 / 13,356 distinct order_numbers have ship_to anywhere.
+
 ---
 
 ## Session: May 29, 2026 — Block project merge when project_id differs
