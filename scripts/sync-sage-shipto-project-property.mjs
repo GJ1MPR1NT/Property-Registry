@@ -12,6 +12,7 @@
  *   node scripts/sync-sage-shipto-project-property.mjs --dry-run
  *   node scripts/sync-sage-shipto-project-property.mjs --apply
  *   node scripts/sync-sage-shipto-project-property.mjs --apply --promote --min-confidence=95
+ *   node scripts/sync-sage-shipto-project-property.mjs --apply --resolve-web --resolve-web-limit=40
  */
 
 import { createClient } from '@supabase/supabase-js';
@@ -30,6 +31,7 @@ import {
   sageOrderRank,
   shipToAddressKey,
 } from './lib/sage-shipto-match.mjs';
+import { enrichPropertiesForMatching } from './lib/site-address-resolve.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 for (const envFile of ['.env.local', '.env']) {
@@ -44,6 +46,10 @@ const minConfidence = Number(
   argv.find((a) => a.startsWith('--min-confidence='))?.split('=')[1] ?? '95',
 );
 const projectFilter = argv.find((a) => a.startsWith('--project-id='))?.split('=')[1]?.trim();
+const RESOLVE_WEB = argv.includes('--resolve-web');
+const resolveWebLimit = Number(
+  argv.find((a) => a.startsWith('--resolve-web-limit='))?.split('=')[1] ?? '50',
+);
 
 const demandUrl = process.env.DALE_DEMAND_SUPABASE_URL;
 const demandKey =
@@ -145,6 +151,18 @@ async function main() {
     'id, property_name, address_line1, address_line2, city, state_province, postal_code, external_ids, normalized_name',
   );
   console.log(`  ${properties.length} properties`);
+
+  if (RESOLVE_WEB) {
+    heading('Firecrawl web resolve (weak address_line1)');
+    const webStats = await enrichPropertiesForMatching(registry, properties, {
+      apply: !DRY,
+      limit: resolveWebLimit,
+      verbose: true,
+    });
+    console.log(
+      `  Web resolve: attempted ${webStats.attempted}, filled ${webStats.resolved}, skipped ${webStats.skipped}, errors ${webStats.errors}`,
+    );
+  }
 
   const propertyById = new Map(properties.map((p) => [p.id, p]));
   for (const project of projects) {

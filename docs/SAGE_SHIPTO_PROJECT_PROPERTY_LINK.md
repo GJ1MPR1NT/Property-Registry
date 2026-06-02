@@ -34,12 +34,15 @@ Sage header sync (`Sage-iQ/scripts/sage_oe_map.py`) should populate `property_ke
 ## Pipeline
 
 ```
-sage_orders (ship_to)
+[optional] Firecrawl web resolve on weak property_registry.address_line1
+    → sage_orders (ship_to)
     → join project_registry (deal keys, external_ids, name vs ship_name)
     → match property_registry (tiers below)
     → upsert project_location_candidates
     → optional --promote writes project_registry.property_id
 ```
+
+Web resolve: `scripts/lib/site-address-resolve.mjs` + `--resolve-web` on the sync script. See `docs/SITE_ADDRESS_WEB_RESOLVE.md`.
 
 ### Project ↔ Sage join
 
