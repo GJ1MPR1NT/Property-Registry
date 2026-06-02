@@ -73,6 +73,56 @@ cat "/Users/geoffreyjackson/Dropbox/The Living Company/TLC iQ/Sage-iQ/data/sage_
 
 ---
 
+## Session: May 28, 2026 — `site_address` wiring (Registry → Chain-iQ)
+
+User: wire install site street address to supply/chain; column name **`site_address`**.
+
+**Where the street line lives (Hub II Bloomington):**
+
+| Source | Has site street? | Example |
+|--------|------------------|---------|
+| **Registry-iQ** `property_registry` | **Yes (authoritative)** | `208 ½ East 19th Street, Bloomington, IN 47408` |
+| **Sage** `sage_orders.ship_to_*` | Partial — UF furniture SOs often have real streets; **Hub II CSL line has LLC name only** | `2pr00088 Core Bloomington Linclon LLC` (not 19th St) |
+| **NetSuite** job 10201 REST | **No** in verified pulls — ROSD/order-by yes; `custentityoff_site` blank | Project `25326 Bloomington, IN - HUB II` |
+| **Chain-iQ** `destination` | Logistics routing only | `Brighton, TN 38011` or `Bloomington IN 47408` |
+
+**Schema (applied live 2026-05-28):**
+- Chain-iQ `container_loads.site_address` — `scripts/migration-container-site-address.sql`
+- Registry-iQ `project_registry.site_address` — `scripts/migration-project-registry-site-address.sql`
+
+**Sync:** `scripts/sync-site-address-to-chain.mjs` (+ `scripts/lib/site-address.mjs`)
+
+```bash
+node scripts/sync-site-address-to-chain.mjs --dry-run
+node scripts/sync-site-address-to-chain.mjs --apply
+```
+
+**First apply:** 1,906 `project_registry` rows + 2,631 `container_loads` rows. Hub II BSI containers now carry `site_address = 208 ½ East 19th Street…` while `destination` remains Brighton staging.
+
+**Fix:** tightened CSL/SO project match in `container-destination-guard.mjs` (no blanket Hub I Bloomington on all SO lines).
+
+**Docs:** `docs/SITE_ADDRESS_WIRING.md`
+
+---
+
+## Session: May 28, 2026 — Firecrawl web resolve in matching pipeline
+
+User: use Firecrawl web search to resolve site addresses (property websites, press releases) and integrate into all matching.
+
+**Module:** `scripts/lib/site-address-resolve.mjs` — queries, search+scrape, regex + optional Claude extract, city/state validation, `enrichment_sources` provenance.
+
+**Scripts / hooks:**
+- `scripts/resolve-site-address-firecrawl.mjs` — batch `--apply --limit=N`
+- `sync-sage-shipto-project-property.mjs` — `--resolve-web --resolve-web-limit=50`
+- `sync-site-address-to-chain.mjs` — `--resolve-web-first`
+- `run-comprehensive-sage-shipto-backfill.sh` — Phase 2b + Phase 3 with `--resolve-web`
+
+**Scale:** ~1,239 / 2,126 properties lack a real `address_line1` (run with limits; Firecrawl credits).
+
+**Docs:** `docs/SITE_ADDRESS_WEB_RESOLVE.md`
+
+---
+
 ## Session: May 31, 2026 — Container destination guard (stop unknown warehouse/property)
 
 User: inbound containers to unknown warehouse or property **should be stopped**.
