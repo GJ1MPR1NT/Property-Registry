@@ -92,6 +92,24 @@ async function main() {
     console.log(`  ok page ${pageNum}`);
   }
 
+  // Per-type cropped layouts (correct unit label on thumbnail)
+  const cropCloud = new Map();
+  const cropNeeded = Object.entries(map.types).filter(([, spec]) => spec.layout_crop_pdf);
+  console.log(`Layout crops (${DRY ? 'DRY' : 'APPLY'}): ${cropNeeded.length}`);
+  for (const [typeName, spec] of cropNeeded) {
+    const path = spec.layout_crop_pdf;
+    if (!path || !existsSync(path)) { console.warn('  missing crop', typeName, path); continue; }
+    const safe = typeName.replace(/[^A-Za-z0-9._-]+/g, '_');
+    if (DRY) {
+      cropCloud.set(typeName, { pdf_url: `dry://crop-${safe}.pdf`, png_url: `dry://crop-${safe}.png` });
+      continue;
+    }
+    const publicId = `property-registry/${PID}/unit-plan-crops/${safe}`;
+    const up = await uploadPdf(path, publicId);
+    cropCloud.set(typeName, { pdf_url: up.pdf_url, png_url: up.png_url });
+  }
+  if (!DRY) console.log(`  uploaded ${cropCloud.size} crops`);
+
   let layoutOk = 0, kitchenOk = 0, bathOk = 0, gaps = { layout: [], kitchen: [] };
 
   for (const [typeName, spec] of Object.entries(map.types)) {
@@ -102,7 +120,20 @@ async function main() {
     const pageNum = spec.layout_page;
     let layoutAssets = [];
 
-    if (pageNum && pageCloud.has(pageNum)) {
+    const crop = cropCloud.get(typeName);
+    if (crop) {
+      layoutAssets = [{
+        role: 'finish_layout',
+        url: crop.pdf_url,
+        png_url: crop.png_url,
+        label: `${typeName} — finish layout`,
+        source_path: 'UNIT PLANS_5.2025.pdf',
+        source_page: pageNum,
+        unit_type_name: typeName,
+        cropped: true,
+      }];
+      layoutOk++;
+    } else if (pageNum && pageCloud.has(pageNum)) {
       const c = pageCloud.get(pageNum);
       layoutAssets = [{
         role: 'finish_layout',
@@ -122,7 +153,11 @@ async function main() {
     if (mw && !CABINET_GAP.has(mw)) {
       const k = linkShopDrawing(shopByNo, mw);
       if (k?.pdf_url) {
-        roomDrawings.kitchen = { ...k, source_ref: spec.kitchen_cab_raw };
+        roomDrawings.kitchen = {
+          ...k,
+          source_ref: spec.kitchen_cab_raw,
+          note: 'Cabinet shop drawing is labeled with a representative unit type; Matrix Kitchen Cab code is authoritative for this finish type.',
+        };
         kitchenOk++;
       } else if (k) {
         roomDrawings.kitchen = { drawing_no: mw, source_ref: spec.kitchen_cab_raw, thumbnail_url: null, pdf_url: null };
