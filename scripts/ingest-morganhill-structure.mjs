@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 /**
  * Apply Morgan Hill structure enrichment derived from Matrix NEW MASTER.
- * Consumes .firecrawl/mh-structure.json (produced by the Python matrix parser):
- *   { units: [[unit_number, area, truck, phase], ...],
+ * Consumes .firecrawl/mh-structure.json (produced by scripts/extract-mh-structure.py):
+ *   { units: [[unit_number, area, truck, phase, color_code], ...],
  *     type_bath: { unit_type_name: bath_count, ... },
  *     inconsistent: { unit_type_name: [counts] } }
  *
  * Writes:
- *   - property_units.construction_area / truck_no / phase_no  (per unit, matched on unit_number)
+ *   - property_units.construction_area / truck_no / phase_no / color_code
  *   - property_unit_types.bathrooms                           (per type, matched on unit_type_name)
  *
  * Building/floor placement is handled separately by migration-reconcile-morganhill-buildings.sql.
@@ -55,11 +55,17 @@ async function main() {
 
   // 1) per-unit sequencing
   let u_ok = 0, u_miss = 0;
-  for (const [unit_number, area, truck, phase] of data.units) {
+  for (const row of data.units) {
+    const [unit_number, area, truck, phase, color_code] = row;
     const { error, count } = await reg
       .from('property_units')
       .update(
-        { construction_area: area ?? null, truck_no: truck ?? null, phase_no: phase ?? null },
+        {
+          construction_area: area ?? null,
+          truck_no: truck ?? null,
+          phase_no: phase ?? null,
+          color_code: color_code ?? null,
+        },
         { count: 'exact' },
       )
       .eq('property_id', PROPERTY_ID)

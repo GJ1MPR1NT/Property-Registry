@@ -1,19 +1,42 @@
 #!/usr/bin/env node
 /**
- * Registry-iQ Schema Migration
+ * Registry-iQ Schema Migration — v1 BOOTSTRAP (DISASTER RECOVERY ONLY)
  *
- * Creates the full schema in the new Registry-iQ Supabase project:
- * - Extensions: PostGIS, pg_trgm
- * - Property tables (7): registry, buildings, floors, unit_types,
- *   stakeholders (refactored as junction), activity_log, documents
- * - Stakeholder registry (companies)
- * - Contact registry + contact_stakeholder_associations (people)
- * - Functions, triggers, indexes, RLS policies
+ * This is a one-shot CREATE TABLE bootstrap that builds Registry-iQ from
+ * an empty Supabase project. It has already been applied to the live
+ * Registry-iQ project (xhafhdaugmgdxckhdfov) and should NOT be re-run there.
+ *
+ * What it creates:
+ *   - Extensions: PostGIS, pg_trgm
+ *   - Property tables (7): registry, buildings, floors, unit_types,
+ *     stakeholders (junction), activity_log, documents
+ *   - Stakeholder registry (companies)
+ *   - Contact registry + contact_stakeholder_associations (people)
+ *   - Functions, triggers, indexes, RLS policies
+ *
+ * Schema currency:
+ *   The embedded SQL reflects the schema *through migration 006*
+ *   (bedroom taxonomy + bed-count hierarchy + GENERATED columns,
+ *   April 2026). For incremental changes after this point, apply
+ *   migrations from /Users/geoffreyjackson/MyApps/TURBO/migrations/
+ *   in sequence (007 = fn_apply_rita_proposal RPC, etc.) — do NOT
+ *   keep retrofitting them into this bootstrap.
+ *
+ *   Tables added by later migrations (RITA enrichment proposals/runs,
+ *   facility_registry, pull_requests, etc.) are NOT in this bootstrap;
+ *   they live in their own migration files.
  *
  * Usage: node scripts/migrate-to-registry-iq.mjs [--dry-run]
+ *
+ * Connection:
+ *   The literal connection string below contains the production database
+ *   password. Rotate the password and move to env var (`REGISTRY_IQ_PG_URL`)
+ *   before this script is used again on a non-recovery target.
+ *   See MASTER_RECOMMENDATIONS.md.
  */
 
 const CONNECTION_STRING =
+  process.env.REGISTRY_IQ_PG_URL ||
   "postgresql://postgres:Tlciqcortex2026%21@db.xhafhdaugmgdxckhdfov.supabase.co:5432/postgres";
 
 const MIGRATION_SQL = `
@@ -261,6 +284,8 @@ CREATE TABLE property_buildings (
   elevator_count INTEGER,
   year_built INTEGER,
   construction_type TEXT,
+  -- Sibling to property_registry.total_beds; aggregated bottom-up from floors. Migration 006.
+  total_beds_in_building INTEGER,
   notes TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
@@ -290,6 +315,8 @@ CREATE TABLE property_floors (
   has_laundry BOOLEAN DEFAULT false,
   floor_amenities TEXT[],
   total_units_on_floor INTEGER,
+  -- Sibling to total_units_on_floor; aggregated from per-unit beds_per_unit. Migration 006.
+  total_beds_on_floor INTEGER,
   total_sqft NUMERIC,
   notes TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -312,15 +339,38 @@ CREATE TABLE property_unit_types (
   unit_type_code TEXT,
   layout_type TEXT,
   total_sqft NUMERIC,
+  -- Bedroom taxonomy (5 atomic categories). Migration 006 (Apr 2026).
+  -- standard_bedrooms — fully enclosed bedroom (most common case)
+  -- divider_bedrooms  — bedroom inside the load-bearing frame partitioned by barn door / vestibule (Hub Raleigh "Lite")
+  -- shared_bedrooms   — one architecturally enclosed bedroom holding multiple students
+  -- pod_bedrooms      — count of architecturally enclosed bedrooms in a pod cluster (e.g. 4x2 Pod = 2)
+  -- murphy_bedrooms   — fully enclosed bedroom with a Murphy bed as primary surface
   standard_bedrooms INTEGER DEFAULT 0,
-  divided_bedrooms INTEGER DEFAULT 0,
-  total_bedrooms_effective INTEGER,
+  divider_bedrooms INTEGER DEFAULT 0,
+  shared_bedrooms INTEGER DEFAULT 0,
+  pod_bedrooms INTEGER DEFAULT 0,
+  murphy_bedrooms INTEGER DEFAULT 0,
+  -- Flex sleep zone in the living area; explicitly NOT a bedroom.
+  super_murphy_living_rooms INTEGER DEFAULT 0,
+  -- GENERATED: sum of the 5 bedroom-category fields. Excludes super_murphy_living_rooms.
+  bedrooms_structural INTEGER GENERATED ALWAYS AS (
+    COALESCE(standard_bedrooms, 0) + COALESCE(divider_bedrooms, 0) +
+    COALESCE(shared_bedrooms, 0)   + COALESCE(pod_bedrooms, 0) +
+    COALESCE(murphy_bedrooms, 0)
+  ) STORED,
   bathrooms INTEGER DEFAULT 0,
   half_baths INTEGER DEFAULT 0,
   kitchen_size TEXT CHECK (kitchen_size IN ('S', 'M', 'L', 'none', 'kitchenette')),
   unit_count INTEGER DEFAULT 0,
-  bed_count_per_unit INTEGER DEFAULT 1,
-  total_beds_this_type INTEGER,
+  beds_per_unit INTEGER DEFAULT 1,
+  -- GENERATED: total sleeping capacity for this unit type.
+  total_beds_for_unit_type INTEGER GENERATED ALWAYS AS (
+    COALESCE(unit_count, 0) * COALESCE(beds_per_unit, 0)
+  ) STORED,
+  -- Flexible multi-select tags: 'lite', 'mansion', 'spa', 'vip', 'corner',
+  -- 'townhome', 'pod', 'shared', 'studio', 'murphy_bed', etc.
+  unit_features TEXT[] DEFAULT '{}'::TEXT[],
+  upgrade_tier TEXT DEFAULT 'standard' CHECK (upgrade_tier IN ('standard', 'compact', 'premium', 'vip')),
   floors_present TEXT[],
   is_furnished BOOLEAN DEFAULT true,
   floorplan_url TEXT,

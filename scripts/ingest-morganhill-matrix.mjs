@@ -156,7 +156,7 @@ async function main() {
         roomDrawings.kitchen = {
           ...k,
           source_ref: spec.kitchen_cab_raw,
-          note: 'Cabinet shop drawing is labeled with a representative unit type; Matrix Kitchen Cab code is authoritative for this finish type.',
+          note: 'Cabinet shop drawing is labeled with a representative unit type; Matrix Kitchen Cab code is authoritative for this Unit Type - GC.',
         };
         kitchenOk++;
       } else if (k) {

@@ -23,7 +23,7 @@
 | MH-07 | LATER | ontology | Materialize rooms as LOCATION rows (kitchen/living/bath_x/bed_x…) per the broader ontology vision. | Jun 19 | Jun 19 |
 | MH-08 | LATER | rollups | Custom PM rollups for construction zones/sequence areas (Area/Truck/Phase tags already on units; Area 66 blank). | Jun 19 | Jun 19 |
 | UI-01 | LATER | ui | Optionally relocate the 3 transient RITA run-status banners (no-results, staged-run, findings review) to the bottom too (currently kept near the RITA action button by design). | Jun 19 | Jun 19 |
-| MH-10 | NOW | campaign | Morgan Hill `MH-REGISTRY-ENRICH-001`: campaign sent; **deploy dale-chat** so property-page monitor + latest send UI are live in prod. | Jun 20 | Jun 20 |
+| MH-10 | DONE | campaign | Morgan Hill `MH-REGISTRY-ENRICH-001`: deployed + reseeded (7 items, simplified if/then survey). | Jun 20 | Jun 21 |
 | MH-13 | DONE | campaign | Admin **Campaign monitor** on property page + SYNC-iQ `/sync/registry-enrich`: sent/opened/submitted/files, active link copy, event log. APIs: property status route + Registry-iQ read in Enrich-iQ. | Jun 20 | Jun 20 |
 | MH-11 | NEXT | campaign | Image annotation on enrich review page (react-konva) + full Matrix unit-facts ingest (not hardcoded MH sample). | Jun 20 | Jun 20 |
 | MH-12 | DONE | campaign | Campaign file attachments: `file_upload` question, `property_enrich_review_files` table, magic-byte + optional VirusTotal scan, multi-file per question. | Jun 20 | Jun 20 |

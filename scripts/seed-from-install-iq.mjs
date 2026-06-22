@@ -321,18 +321,28 @@ async function seedDeal(dealNumber) {
   if (unitTypeCounts.size > 0) {
     await registryIq.from('property_unit_types').delete().eq('property_id', propertyId);
 
+    // Migration 006 (Apr 2026): bedrooms_structural and total_beds_for_unit_type
+    // are GENERATED ALWAYS AS (...) STORED — never write them. Glide unit-type
+    // names like "1BED" / "2bd" only carry a bed count; we preserve pre-006
+    // semantics by mapping beds → standard_bedrooms and leaving the other
+    // categories (divider/shared/pod/murphy) at 0. RITA architectural passes
+    // can reclassify later when drawings are available.
     for (const [typeName, data] of [...unitTypeCounts.entries()].sort()) {
-  const bedMatch = typeName.match(/(\d+)\s*(?:BED|bd)\b/i);
+      const bedMatch = typeName.match(/(\d+)\s*(?:BED|bd)\b/i);
       const beds = bedMatch ? parseInt(bedMatch[1]) : 0;
       await registryIq.from('property_unit_types').insert({
         property_id: propertyId,
         unit_type_name: typeName,
         unit_count: data.count,
-        bed_count_per_unit: beds,
-        total_beds_this_type: data.count * beds,
         standard_bedrooms: beds,
-        divided_bedrooms: 0,
-        total_bedrooms_effective: beds,
+        divider_bedrooms: 0,
+        shared_bedrooms: 0,
+        pod_bedrooms: 0,
+        murphy_bedrooms: 0,
+        super_murphy_living_rooms: 0,
+        beds_per_unit: beds,
+        unit_features: [],
+        upgrade_tier: 'standard',
         bathrooms: beds > 0 ? Math.ceil(beds / 2) : 0,
         half_baths: 0,
         is_furnished: true,

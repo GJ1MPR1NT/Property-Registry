@@ -298,14 +298,27 @@ async function syncDeal(deal, registryPropertyId) {
 
     let existing = existingUtMap.get(key) || existingUtByName.get(name?.toLowerCase());
 
+    // Migration 006 (Apr 2026): bedrooms_structural and total_beds_for_unit_type
+    // are GENERATED ALWAYS AS (...) STORED — never write them.
+    // Production unit-type names like "D3 4bd" only tell us bed count, not the
+    // bedroom layout (standard vs divider vs shared vs pod vs murphy). Default
+    // to standard_bedrooms = beds for parity with the pre-006 behavior, leave
+    // the other category counts at 0. A subsequent RITA architectural pass can
+    // reclassify into the right category.
     const row = {
       property_id: registryPropertyId,
       unit_type_name: name,
       production_unit_type_key: key,
       unit_count: unitCount,
-      total_bedrooms_effective: beds,
-      bed_count_per_unit: beds,
-      total_beds_this_type: beds ? beds * unitCount : null,
+      standard_bedrooms: beds || 0,
+      divider_bedrooms: 0,
+      shared_bedrooms: 0,
+      pod_bedrooms: 0,
+      murphy_bedrooms: 0,
+      super_murphy_living_rooms: 0,
+      beds_per_unit: beds || 0,
+      unit_features: [],
+      upgrade_tier: 'standard',
       floorplan_url: put.floorplan_url || null,
     };
 

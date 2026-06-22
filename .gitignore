@@ -26,3 +26,11 @@ npm-debug.log*
 # Optional local spreadsheets (not part of source)
 *.xlsx
 .firecrawl/
+
+# Local DB / Access artifacts (data lives in Supabase, not git)
+*.accdb
+Access/*.db
+
+# Local marketing image drops (canonical copies in Cloudinary / Box)
+HUB Bloomington/
+HUB Raleigh/
