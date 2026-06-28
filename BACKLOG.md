@@ -1,6 +1,6 @@
 # TLC iQ Platform — Property Registry Master Backlog
 
-**Last reviewed:** Jun 20, 2026
+**Last reviewed:** Jun 27, 2026
 
 ## Priority Legend
 - **NOW** — User wants this done in the current or next session
@@ -26,7 +26,13 @@
 | MH-10 | DONE | campaign | Morgan Hill `MH-REGISTRY-ENRICH-001`: deployed + reseeded (7 items, simplified if/then survey). | Jun 20 | Jun 21 |
 | MH-13 | DONE | campaign | Admin **Campaign monitor** on property page + SYNC-iQ `/sync/registry-enrich`: sent/opened/submitted/files, active link copy, event log. APIs: property status route + Registry-iQ read in Enrich-iQ. | Jun 20 | Jun 20 |
 | MH-11 | NEXT | campaign | Image annotation on enrich review page (react-konva) + full Matrix unit-facts ingest (not hardcoded MH sample). | Jun 20 | Jun 20 |
-| MH-12 | DONE | campaign | Campaign file attachments: `file_upload` question, `property_enrich_review_files` table, magic-byte + optional VirusTotal scan, multi-file per question. | Jun 20 | Jun 20 |
+| CS-01 | DONE | ingest | Core Spaces Prismic ingest: 89 communities → Registry-iQ (`ingest-corespaces-prismic.mjs`). | May 20 | May 20 |
+| CS-02 | DONE | enrichment | Sold Core Spaces portfolio (10): press-release research → current owner + PM stakeholders. 9/10 assigned; Minneapolis unresolved. | May 20 | Jun 27 |
+| CS-03 | DONE | dedupe | Merge legacy Bloomington Hub rows (`HUB Bloomington`, `Hub Bloomington Lincoln (II)`) into canonical Prismic records. | May 20 | Jun 27 |
+| CS-04 | DONE | assets | Cloudinary backfill for Core Spaces Prismic hero/gallery images (91 heroes). | May 20 | Jun 27 |
+| CS-05 | DONE | pipeline | Align coming-soon Prismic communities to project_registry deals (14 linked; 7 no open deal). | May 20 | Jun 27 |
+| CS-06 | NEXT | enrichment | Hub Minneapolis sold-portfolio: identify current owner/PM (press research inconclusive). | Jun 27 | Jun 27 |
+| CS-07 | LATER | pipeline | Coming-soon with no pipeline deal: William, Ann Arbor State, Madison Bassett, Oxenfree Liberty Hill/Parklin/Stonebriar/Rowlett — create deals or wait for CRM. | Jun 27 | Jun 27 |
 
 ## Done (recent)
 | ID | Status | Category | Description | Added | Updated |

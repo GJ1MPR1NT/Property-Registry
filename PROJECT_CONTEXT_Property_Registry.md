@@ -1,6 +1,67 @@
 # PROJECT_CONTEXT — Property Registry
 
-**Last updated:** Jun 20, 2026
+**Last updated:** Jun 27, 2026
+
+## Session: Jun 27, 2026 — Core Spaces follow-ups CS-02 through CS-05
+
+**Completed all four recommended next steps from May 20 ingest:**
+
+### CS-02 — Sold portfolio ownership (9/10 resolved)
+Script: `scripts/enrich-corespaces-sold-ownership.mjs`
+- **American Campus Communities** (owner + PM): Ann Arbor, Eugene, Flagstaff, Madison (The James), U District Seattle, State Fort Collins — sourced from MHN Sep 2017 $560.6M ACC portfolio article
+- **Lark Living**: Hub Oxford (larkoxford.com)
+- **Scion Group / University House**: Hub Tempe (uhtempe.com rebrand)
+- **Yugo**: Hub Tucson (yugotucsoncampus.com)
+- **Unresolved:** Hub Minneapolis — press research inconclusive; still flagged `needs_ownership_research`
+- Report: `.firecrawl/cs-sold-ownership-report.json`
+
+### CS-03 — Bloomington dedupe merges
+Script: `scripts/merge-corespaces-bloomington.mjs` → `iqid_apply_merge`
+- `HUB Bloomington` (baad0f51) → `Hub on Campus Bloomington` (845827d4)
+- `Hub Bloomington Lincoln (II)` (beb742ce) → `Hub on Campus Bloomington Lincoln` (8d192192)
+
+### CS-04 — Cloudinary hero backfill
+`scripts/backfill-images-to-cloudinary.mjs --apply --source=corespaces_prismic` — **91/91** Prismic hero URLs uploaded to Cloudinary
+
+### CS-05 — Coming-soon → project_registry alignment
+Script: `scripts/link-corespaces-coming-soon-projects.mjs` + manual repoint of legacy duplicate property_ids
+- **Linked/repointed (14):** Tallahassee (25-071-I), Clemson (26-002-I), Knoxville (25-005-I), Boulder (26-006-I), Tampa (25-1631-D), West Lafayette Chauncey, Madison Broom, Raleigh (26-001-I), Bloomington Lincoln (27-006-I/27-007-I), Clear Creek (MX-004), West Oak (DFW-West Oak)
+- **No open pipeline deal found (7):** William, Ann Arbor State, Madison Bassett, Oxenfree Liberty Hill/Parklin/Stonebriar/Rowlett
+- Report: `.firecrawl/cs-coming-soon-project-links.json`
+
+---
+
+## Session: May 20, 2026 — Core Spaces website → Registry-iQ ingest
+
+**Goal:** Methodically capture Core Spaces portfolio from new [corespaces.com/communities](https://corespaces.com/communities) site (coming-soon pipeline + sold portfolio) into `property_registry`.
+
+**Discovery:** Site is a Next.js + **Prismic CMS** SPA. Static scrape/Firecrawl returns "0 Communities"; data comes from `core-spaces-website.cdn.prismic.io/api/v2` (public read token embedded in site JS).
+
+**Deliverable:** `scripts/ingest-corespaces-prismic.mjs`
+- Pulls all 89 `property` documents + 8 `property_brand` documents from Prismic
+- Maps: name, address, city/state/zip, lat/lng, university, brand, units/beds/SF, hero + gallery images, property URL, coming-soon flag, owned-by-core (sold) flag
+- Upserts into Registry-iQ; links **Core Spaces** stakeholder as `developer`
+- Sold assets (`is_owned_by_core=false`, 10): `property_status=inactive`, `tlc_relationship=former_customer`, `enrichment_sources.needs_ownership_research=true`
+- Coming soon (19): `property_status=pre_development` or `under_construction`
+
+**Run (May 20):** 89/89 matched+updated, 0 errors. Registry now has **91** rows with `external_ids.prismic_id` (includes prior partial inserts).
+
+**Bloomington (priority) — 3 canonical Core Spaces rows enriched:**
+| Property | Status | Units | Beds | Address |
+|---|---|---|---|---|
+| Hub on Campus Bloomington | active | 170 | 591 | 2038 N Walnut St |
+| Hub on Campus Bloomington Lincoln | pre_development | 461 | 1,429 | 1303 N Lincoln St |
+| State on Campus Bloomington | active | 198 | 468 | 2036 N Walnut St |
+
+**Artifacts:** `.firecrawl/corespaces-prismic-normalized.json`, `.firecrawl/corespaces-ingest-report.json`
+
+**Follow-ups (completed Jun 27 — see session above):**
+1. ~~Press-release / buyer research for 10 sold Hub/State assets~~ → CS-02 DONE (9/10)
+2. ~~Dedupe merge: legacy Bloomington rows~~ → CS-03 DONE
+3. ~~Cloudinary hero backfill~~ → CS-04 DONE (91 images)
+4. ~~Pipeline alignment: coming-soon → project_registry~~ → CS-05 DONE (14 linked)
+
+---
 
 ## Session: Jun 20, 2026 — Registry drill-through navigation (dale-chat)
 

@@ -10,6 +10,7 @@
  *   node scripts/backfill-images-to-cloudinary.mjs --dry-run
  *   node scripts/backfill-images-to-cloudinary.mjs --apply
  *   node scripts/backfill-images-to-cloudinary.mjs --apply --limit=50
+ *   node scripts/backfill-images-to-cloudinary.mjs --apply --source=corespaces_prismic
  */
 
 import { createClient } from '@supabase/supabase-js';
@@ -29,6 +30,7 @@ const argv = process.argv.slice(2);
 const DRY = !argv.includes('--apply');
 const limitArg = argv.find((a) => a.startsWith('--limit='))?.split('=')[1];
 const limit = limitArg ? parseInt(limitArg, 10) : 5000;
+const sourceFilter = argv.find((a) => a.startsWith('--source='))?.split('=')[1] || null;
 
 const regUrl = process.env.REGISTRY_IQ_SUPABASE_URL;
 const regKey = process.env.REGISTRY_IQ_SUPABASE_SERVICE_ROLE_KEY;
@@ -49,21 +51,31 @@ function configureCloudinaryFromEnv() {
   return true;
 }
 
-async function fetchCandidates(client, max) {
+function matchesSource(row, source) {
+  if (!source) return true;
+  if (source === 'corespaces_prismic') {
+    const sources = Array.isArray(row.enrichment_sources) ? row.enrichment_sources : [];
+    return sources.some((s) => s.type === 'corespaces_prismic') || row.external_ids?.prismic_id;
+  }
+  return true;
+}
+
+async function fetchCandidates(client, max, source) {
   const pageSize = 500;
   let all = [];
   let from = 0;
   for (;;) {
     const { data, error } = await client
       .from('property_registry')
-      .select('id, hero_image_url, enrichment_sources')
+      .select('id, hero_image_url, enrichment_sources, external_ids')
       .not('hero_image_url', 'is', null)
       .range(from, from + pageSize - 1);
     if (error) throw error;
     if (!data?.length) break;
     const ext = data.filter((r) => {
       const u = r.hero_image_url;
-      return typeof u === 'string' && u.startsWith('http') && !u.includes('res.cloudinary.com');
+      if (typeof u !== 'string' || !u.startsWith('http') || u.includes('res.cloudinary.com')) return false;
+      return matchesSource(r, source);
     });
     all = all.concat(ext);
     if (all.length >= max || data.length < pageSize) break;
@@ -95,8 +107,8 @@ async function main() {
   }
 
   const reg = createClient(regUrl, regKey, { auth: { persistSession: false } });
-  const rows = await fetchCandidates(reg, limit);
-  console.log(`Backfill hero images (${DRY ? 'DRY-RUN' : 'APPLY'}): ${rows.length} candidate(s), limit=${limit}`);
+  const rows = await fetchCandidates(reg, limit, sourceFilter);
+  console.log(`Backfill hero images (${DRY ? 'DRY-RUN' : 'APPLY'}): ${rows.length} candidate(s), limit=${limit}${sourceFilter ? ` source=${sourceFilter}` : ''}`);
 
   let ok = 0;
   for (const row of rows) {
